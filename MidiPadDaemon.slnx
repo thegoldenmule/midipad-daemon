@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="MidiPadDaemon.App/MidiPadDaemon.App.csproj" />
+  <Project Path="MidiPadDaemon.Core/MidiPadDaemon.Core.csproj" />
+  <Project Path="MidiPadDaemon.Interop/MidiPadDaemon.Interop.csproj" />
+</Solution>
