@@ -37,9 +37,10 @@ public sealed class MidiBackgroundService : IHostedService
         _mappingEngine.UpdateConfig(config);
 
         _logger.LogInformation(
-            "Loaded configuration - Active profile: {ActiveProfile}, Bindings: {BindingCount}",
+            "Loaded configuration - Active profile: {ActiveProfile}, Bindings: {BindingCount}, VerboseLogging: {VerboseLogging}",
             config.ActiveProfileId,
-            config.Profiles.FirstOrDefault(p => p.Id == config.ActiveProfileId)?.Bindings.Count ?? 0);
+            config.Profiles.FirstOrDefault(p => p.Id == config.ActiveProfileId)?.Bindings.Count ?? 0,
+            config.VerboseLogging);
 
         // Wire up MIDI events to mapping engine
         _midiInputService.MidiEventReceived += OnMidiEventReceived;

@@ -93,7 +93,9 @@ app.MapGet("/", () => new
         "GET  /diagnostics/status  - Get daemon status",
         "GET  /diagnostics/devices - List MIDI devices",
         "POST /diagnostics/test-action/{bindingId} - Test a binding",
-        "GET  /diagnostics/keys    - List available key names"
+        "GET  /diagnostics/keys    - List available key names",
+        "GET  /diagnostics/verbose - Get verbose logging state",
+        "PUT  /diagnostics/verbose - Set verbose logging on or off"
     }
 });
 

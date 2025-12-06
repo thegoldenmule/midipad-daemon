@@ -49,27 +49,33 @@ public sealed class MappingEngine : IMappingEngine
     public async Task HandleEventAsync(MidiInputEvent midiEvent, CancellationToken ct = default)
     {
         var config = _config; // Snapshot for thread safety
-
-        _logger.LogDebug(
-            "Handling MIDI event: Type={EventType}, Channel={Channel}, Number={Number}, Value={Value}",
-            midiEvent.EventType,
-            midiEvent.Channel,
-            midiEvent.Number,
-            midiEvent.Value);
+        var verbose = config.VerboseLogging;
 
         var bindings = FindMatchingBindings(midiEvent, config).ToList();
 
         if (bindings.Count == 0)
         {
-            _logger.LogDebug(
-                "No matching bindings for: Type={EventType}, Channel={Channel}, Number={Number}",
-                midiEvent.EventType,
-                midiEvent.Channel,
-                midiEvent.Number);
+            // Only log unmatched events when verbose logging is enabled
+            if (verbose)
+            {
+                _logger.LogInformation(
+                    "MIDI event (no binding): Type={EventType}, Channel={Channel}, Number={Number}, Value={Value}",
+                    midiEvent.EventType,
+                    midiEvent.Channel,
+                    midiEvent.Number,
+                    midiEvent.Value);
+            }
             return;
         }
 
-        _logger.LogDebug("Found {BindingCount} matching binding(s)", bindings.Count);
+        // Always log matched events
+        _logger.LogInformation(
+            "MIDI event matched {BindingCount} binding(s): Type={EventType}, Channel={Channel}, Number={Number}, Value={Value}",
+            bindings.Count,
+            midiEvent.EventType,
+            midiEvent.Channel,
+            midiEvent.Number,
+            midiEvent.Value);
 
         foreach (var binding in bindings)
         {

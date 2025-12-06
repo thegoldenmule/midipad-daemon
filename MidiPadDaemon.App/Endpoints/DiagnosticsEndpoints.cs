@@ -28,6 +28,14 @@ public static class DiagnosticsEndpoints
         group.MapGet("/keys", GetAvailableKeys)
             .WithName("GetAvailableKeys")
             .WithSummary("List all available key names for keyboard actions");
+
+        group.MapGet("/verbose", GetVerboseLogging)
+            .WithName("GetVerboseLogging")
+            .WithSummary("Get current verbose logging state");
+
+        group.MapPut("/verbose", SetVerboseLogging)
+            .WithName("SetVerboseLogging")
+            .WithSummary("Set verbose logging on or off");
     }
 
     public static void RecordEvent(MidiInputEvent ev)
@@ -59,6 +67,7 @@ public static class DiagnosticsEndpoints
             bindingCount = config.Profiles
                 .FirstOrDefault(p => p.Id == config.ActiveProfileId)?
                 .Bindings.Count ?? 0,
+            verboseLogging = config.VerboseLogging,
             eventCount = _eventCount,
             lastEvent = _lastEvent is null ? null : new
             {
@@ -159,5 +168,31 @@ public static class DiagnosticsEndpoints
                 .OrderBy(k => k.Key)
                 .Select(k => new { name = k.Key, keyCode = $"0x{k.Value:X2}" })
         });
+    }
+
+    private static IResult GetVerboseLogging(IConfigStore configStore, ILogger<Program> logger)
+    {
+        logger.LogDebug("GET /diagnostics/verbose");
+
+        var config = configStore.Current;
+        return Results.Ok(new { verboseLogging = config.VerboseLogging });
+    }
+
+    private static async Task<IResult> SetVerboseLogging(
+        bool enabled,
+        IConfigStore configStore,
+        IMappingEngine mappingEngine,
+        ILogger<Program> logger)
+    {
+        logger.LogInformation("PUT /diagnostics/verbose - Setting verbose logging to: {Enabled}", enabled);
+
+        var config = await configStore.LoadAsync();
+        var updatedConfig = config with { VerboseLogging = enabled };
+
+        await configStore.SaveAsync(updatedConfig);
+        mappingEngine.UpdateConfig(updatedConfig);
+
+        logger.LogInformation("Verbose logging set to: {Enabled}", enabled);
+        return Results.Ok(new { verboseLogging = enabled });
     }
 }
