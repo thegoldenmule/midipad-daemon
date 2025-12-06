@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using MidiPadDaemon.Core.Interfaces;
 using MidiPadDaemon.Core.Models;
 using MidiPadDaemon.Interop.Interfaces;
@@ -13,6 +14,7 @@ public sealed class KeyboardActionExecutor : IActionExecutor
     private readonly ILogger<KeyboardActionExecutor> _logger;
     private readonly IKeyCodeMapper _keyCodeMapper;
     private readonly IKeyboardInjector _keyboardInjector;
+    private readonly ConcurrentDictionary<string, bool> _heldKeys = new();
 
     public KeyboardActionExecutor(
         ILogger<KeyboardActionExecutor> logger,
@@ -41,27 +43,91 @@ public sealed class KeyboardActionExecutor : IActionExecutor
             return Task.CompletedTask;
         }
 
+        if (keyboard.Mode == KeyboardMode.ToggleHold)
+        {
+            ExecuteToggleHold(keyboard, keyCode.Value, sourceEvent);
+        }
+        else
+        {
+            ExecutePress(keyboard, keyCode.Value, sourceEvent);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private void ExecutePress(KeyboardActionConfig keyboard, ushort keyCode, MidiInputEvent sourceEvent)
+    {
+        var keyCombo = FormatKeyCombo(keyboard);
+
         _logger.LogDebug(
-            "Sending key press: Key={Key} (0x{KeyCode:X2}), Cmd={Command}, Opt={Option}, Ctrl={Control}, Shift={Shift}",
-            keyboard.Key,
-            keyCode.Value,
-            keyboard.Command,
-            keyboard.Option,
-            keyboard.Control,
-            keyboard.Shift);
+            "Sending key press: {KeyCombo} (0x{KeyCode:X2})",
+            keyCombo,
+            keyCode);
 
         _keyboardInjector.SendKeyPress(
-            keyCode.Value,
+            keyCode,
             keyboard.Command,
             keyboard.Option,
             keyboard.Control,
             keyboard.Shift);
 
         _logger.LogInformation(
-            "Key press sent: {Key} (triggered by MIDI note {Note})",
-            keyboard.Key,
+            "Key press sent: {KeyCombo} (triggered by MIDI note {Note})",
+            keyCombo,
             sourceEvent.Number);
-
-        return Task.CompletedTask;
     }
+
+    private void ExecuteToggleHold(KeyboardActionConfig keyboard, ushort keyCode, MidiInputEvent sourceEvent)
+    {
+        var stateKey = GetStateKey(keyboard);
+        var keyCombo = FormatKeyCombo(keyboard);
+        var isHeld = _heldKeys.GetValueOrDefault(stateKey, false);
+
+        if (isHeld)
+        {
+            _keyboardInjector.SendKeyUp(
+                keyCode,
+                keyboard.Command,
+                keyboard.Option,
+                keyboard.Control,
+                keyboard.Shift);
+
+            _heldKeys[stateKey] = false;
+
+            _logger.LogInformation(
+                "Key released (toggle): {KeyCombo} (triggered by MIDI note {Note})",
+                keyCombo,
+                sourceEvent.Number);
+        }
+        else
+        {
+            _keyboardInjector.SendKeyDown(
+                keyCode,
+                keyboard.Command,
+                keyboard.Option,
+                keyboard.Control,
+                keyboard.Shift);
+
+            _heldKeys[stateKey] = true;
+
+            _logger.LogInformation(
+                "Key held (toggle): {KeyCombo} (triggered by MIDI note {Note})",
+                keyCombo,
+                sourceEvent.Number);
+        }
+    }
+
+    private static string FormatKeyCombo(KeyboardActionConfig config)
+    {
+        var parts = new List<string>();
+        if (config.Control) parts.Add("Ctrl");
+        if (config.Option) parts.Add("Opt");
+        if (config.Shift) parts.Add("Shift");
+        if (config.Command) parts.Add("Cmd");
+        parts.Add(config.Key);
+        return string.Join("+", parts);
+    }
+
+    private static string GetStateKey(KeyboardActionConfig config)
+        => $"{config.Key}:{config.Command}:{config.Option}:{config.Control}:{config.Shift}";
 }

@@ -2,6 +2,12 @@ using System.Text.Json.Serialization;
 
 namespace MidiPadDaemon.Core.Models;
 
+public enum KeyboardMode
+{
+    Press,      // Default: key down + key up
+    ToggleHold  // First hit holds, second hit releases
+}
+
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
 [JsonDerivedType(typeof(KeyboardActionConfig), "keyboard")]
 [JsonDerivedType(typeof(ShellCommandActionConfig), "shell")]
@@ -13,7 +19,8 @@ public sealed record KeyboardActionConfig(
     bool Command = false,
     bool Option = false,
     bool Control = false,
-    bool Shift = false
+    bool Shift = false,
+    KeyboardMode Mode = KeyboardMode.Press
 ) : ActionConfig;
 
 public sealed record ShellCommandActionConfig(
